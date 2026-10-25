@@ -164,7 +164,7 @@ export function openActAI(act) {
     h('div', { class: 'card stack' }, packLocked() ? code : null, copy),
     h('div', { class: 'card stack' }, h('b', null, '2. AI 결과 붙여 넣기'), res,
       h('div', { class: 'row end' }, h('button', { class: 'btn solid', onclick: () => {
-        const blocks = parseBatch(res.value, new Set([code6a(act)]));
+        const blocks = parseBatch(res.value, new Set([code6a(act)]), 'o');
         if (!blocks.length) return toast('결과를 찾지 못했어요. AI가 만든 답 전체를 붙여 넣어 주세요.');
         const a = S.get(act.id); const notes = blocks.map((b) => b.notes).filter(Boolean).join('\n\n');
         if (notes && !a.desc.x.includes('【면접용 정리】')) S.patch(a.id, { desc: { x: (a.desc.x.trim() ? a.desc.x.trim() + '\n\n' : '') + '【면접용 정리】\n' + notes, h: a.desc.h || [] } });

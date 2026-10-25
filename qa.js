@@ -37,17 +37,21 @@ export async function copyText(getText) {
 }
 
 const QRE = /^\s*(?:[-•·]\s*)?(?:Q|질문)\s*\d*\s*[.:：)\]]\s*(.*)$/i;
-const ARE = /^\s*(?:[-•·]\s*)?(?:A|답변|모범\s*답변|답)\s*\d*\s*[.:：)\]]\s*(.*)$/i;
+const ARE = /^\s*(?:[-•·]\s*)?(?:A|답변(?:\s*초안)?|모범\s*답변|답)\s*\d*\s*[.:：)\]]\s*(.*)$/i;
+// "Q."가 빠져도 질문 형식(【1학년】 …, (공통) 【…)으로 시작하면 질문으로 본다
+const QSTART = /^\s*(?:[-•·]|\d+[.)])?\s*(?:\([^)]{1,14}\)\s*)?【\s*\d\s*학년\s*】/;
+const strip = (t) => t.replace(/^\s*(?:[-•·]|\d+[.)])\s*/, '').trim();
 // "Q. 질문 / A. 답변" 형식. 표시가 하나도 없으면 한 줄에 질문 하나로 본다
 export function parseQA(text) {
   const lines = String(text || '').replace(/\*\*|__/g, '').split(/\r?\n/);
-  const marked = lines.some((l) => QRE.test(l));
+  const marked = lines.some((l) => QRE.test(l) || QSTART.test(l));
   const out = []; let cur = null, field = 'q';
   for (const line of lines) {
     const t = line.trim(); if (!t) continue;
-    if (!marked) { out.push({ q: t.replace(/^\s*(?:\d+[.)]|[-•·])\s*/, ''), a: '' }); continue; }
+    if (!marked) { out.push({ q: strip(t), a: '' }); continue; }
     let m;
     if ((m = line.match(QRE))) { cur = { q: m[1].trim(), a: '' }; out.push(cur); field = 'q'; }
+    else if (QSTART.test(line)) { cur = { q: strip(t), a: '' }; out.push(cur); field = 'q'; }
     else if (cur && (m = line.match(ARE))) { cur.a = m[1].trim(); field = 'a'; }
     else if (cur) cur[field] += (cur[field] ? '\n' : '') + t;
   }
@@ -56,7 +60,7 @@ export function parseQA(text) {
 
 // AI 결과 전체: 활동 코드(6자리)가 있는 줄로 나뉜 블록 → [{ code, notes, items }]
 // known(활동 코드 모음)을 주면 [[#코드]] 모양이 조금 달라져도(역슬래시, 대괄호 하나, 굵게 표시 등) 코드가 줄 안에 있기만 하면 찾는다
-export function parseBatch(text, known) {
+export function parseBatch(text, known, mode) {
   const clean = String(text || '').replace(/\\([\[\]#_*`])/g, '$1').replace(/［/g, '[').replace(/］/g, ']').replace(/\*\*|__/g, '').replace(/^\s*```.*$/gm, '');
   const blocks = []; let cur = null;
   for (const line of clean.split(/\r?\n/)) {
@@ -70,7 +74,8 @@ export function parseBatch(text, known) {
     if (cur) cur.lines.push(line);
   }
   return blocks.map((b) => {
-    const i = b.lines.findIndex((l) => QRE.test(l));
+    const i = b.lines.findIndex((l) => QRE.test(l) || QSTART.test(l));
+    if (i < 0 && mode === 'q') return { code: b.code, notes: '', items: parseQA(b.lines.filter((l) => !/^\s*@/.test(l)).join('\n')) };
     const head = i < 0 ? b.lines : b.lines.slice(0, i);
     const notes = head.join('\n').replace(/^\s*@\s*(요약|풀이|용어|연결|점검)\s*[:：]?\s*/gm, '【$1】\n').trim();
     return { code: b.code, notes, items: parseQA(i < 0 ? '' : b.lines.slice(i).join('\n')) };

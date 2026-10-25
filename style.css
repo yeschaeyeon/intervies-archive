@@ -225,3 +225,15 @@ video { max-height: 360px; background: #000; }
 .profs.edit { align-items: stretch; }
 .tile.add { align-items: center; justify-content: center; min-height: 160px; border-style: dashed; }
 .bigq { margin-top: 12px; }
+
+/* 준비 화면: 아이패드 이상에서는 두 칸으로 한 화면에 */
+.gate.wide { max-width: 1040px; padding-top: 14px; padding-bottom: 24px; }
+.prephead { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.prephead h1 { margin: 0; font-size: 20px; }
+.prepgrid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.prepgrid .col > * + * { margin-top: 10px; }
+.prepgrid .card { padding: 12px; }
+@media (min-width: 700px) {
+  .prepgrid { grid-template-columns: 1fr 1fr; align-items: start; }
+  .prepgrid textarea.tall { min-height: 38vh; }
+}

@@ -90,7 +90,7 @@ export function openQGen() {
     const prev = h('div', { class: 'stack' });
     let parsed = [];
     const analyze = () => {
-      parsed = parseBatch(ta.value, new Set(S.list('act').map(code6)));
+      parsed = parseBatch(ta.value, new Set(S.list('act').map(code6)), f.mode);
       const acts = S.list('act'); const rows = []; let miss = 0;
       for (const p of parsed) {
         const a = acts.find((x) => code6(x) === p.code.slice(0, 6) || x.id.replace(/-/g, '').startsWith(p.code));
