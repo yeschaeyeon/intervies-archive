@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- 보안: 외부 서버와의 통신·외부 스크립트·인라인 스크립트를 모두 막습니다. 데이터는 이 기기에서만 처리됩니다. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; connect-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="생기부 아카이브">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+<title>생기부 아카이브</title>
+</head>
+<body>
+<div id="app"></div>
+<div id="modals"></div>
+<div id="toasts" aria-live="polite"></div>
+<noscript><p style="padding:16px">이 앱은 자바스크립트가 필요해요.</p></noscript>
+<script src="jszip.min.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

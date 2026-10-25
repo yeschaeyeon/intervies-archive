@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>프롬프트 묶음 만들기 (제작자용)</title>
+<style>body{font:15px/1.6 sans-serif;max-width:720px;margin:24px auto;padding:0 16px}textarea,input{width:100%;box-sizing:border-box;border:1.5px solid #111;padding:10px;font:inherit}button{border:1.5px solid #111;background:#111;color:#fff;padding:10px 16px;font:inherit;font-weight:700;margin-top:12px}small{color:#666}</style></head>
+<body>
+<h2>프롬프트 묶음 만들기 (제작자용)</h2>
+<p>여기에 적은 프롬프트(예상질문을 고르는 기준)를 암호화해서 <b>qprompt.js</b> 파일로 만들어 줘요. 사이트에 올릴 때 <code>js/qprompt.js</code> 를 이 파일로 바꾸면 돼요. 사용자 화면에는 프롬프트가 보이지 않고 "복사" 버튼만 있어요.</p>
+<p>치환 자리표시: <code>{{지원}}</code>(대학·학과·평가요소·면접형식), <code>{{개수}}</code>, <code>{{가이드}}</code> — 앱이 선택한 값으로 자동으로 채워요. 활동 목록과 코드는 앱이 뒤에 붙여요.</p>
+<label>① 자료 입력용 (AI로 한 번에 입력)</label><textarea id="p0" rows="8"></textarea>
+<label>② 활동 면접용 정리</label><textarea id="p1" rows="10"></textarea>
+<label>③ 예상질문 선정</label><textarea id="p2" rows="10"></textarea>
+<label>이용 코드 (선택)</label>
+<input id="c" placeholder="비워 두면 코드 없이 복사 가능 (소스를 뜯어보면 풀 수 있어요)">
+<small>코드를 정하면, 코드를 아는 사람만 프롬프트를 복사할 수 있어요. 코드는 사이트에 저장되지 않으니 사용자에게 따로 알려 주세요.</small><br>
+<button id="go">qprompt.js 만들기</button>
+<p id="msg"></p>
+<script type="module" src="prompt-pack.page.js"></script>
+</body></html>
