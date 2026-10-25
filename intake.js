@@ -87,3 +87,32 @@ export function applyImportCode(acts, parseQA) {
   }
   return { made, merged, qn };
 }
+
+// ---------- 참고자료 AI 코드 ----------
+const RK = { 종류: 'kind', 학년: 'grade', 설명: 'desc', 활용처: 'usage', 내용: 'body', 면접문장: 'line' };
+export function parseRefCode(text) {
+  const out = []; let cur = null, field = null;
+  for (const raw of String(text || '').replace(/＠/g, '@').split(/\r?\n/)) {
+    if (/^\s*```/.test(raw)) continue;
+    const m = raw.match(/^\s*@@\s*([가-힣]+)\s*(.*)$/);
+    if (m && m[1] === '참고') { cur = { title: m[2].trim(), kind: '', grade: 0, desc: '', usage: '', body: '', line: '' }; out.push(cur); field = null; continue; }
+    if (m && cur && RK[m[1]]) {
+      const k = RK[m[1]], v = m[2].trim();
+      if (k === 'grade') { cur.grade = +(v.match(/[123]/) || [0])[0]; field = null; }
+      else if (k === 'kind') { cur.kind = v; field = null; }
+      else { field = k; if (v) cur[k] += v + '\n'; }
+      continue;
+    }
+    if (cur && field) cur[field] += raw + '\n';
+  }
+  return out.map((r) => ({ ...r, desc: r.desc.trim(), usage: r.usage.trim(), line: r.line.trim(), body: (r.body.trim() + (r.line.trim() ? '\n\n【면접 문장】\n' + r.line.trim() : '')).trim() })).filter((r) => r.title);
+}
+export function applyRefCode(refs) {
+  let made = 0, merged = 0;
+  for (const r of refs) {
+    const ex = S.list('ref', (x) => x.title === r.title)[0];
+    if (ex) { merged++; const p = {}; if (!(ex.desc && ex.desc.x.trim()) && r.desc) p.desc = tf(r.desc); if (!(ex.usage && ex.usage.x.trim()) && r.usage) p.usage = tf(r.usage); if (!(ex.body && ex.body.x.trim()) && r.body) p.body = tf(r.body); if (Object.keys(p).length) S.patch(ex.id, p); continue; }
+    S.create('ref', { title: r.title, kind: r.kind, grade: r.grade, desc: tf(r.desc), usage: tf(r.usage), body: tf(r.body) }); made++;
+  }
+  return { made, merged };
+}

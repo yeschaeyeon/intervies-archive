@@ -10,7 +10,7 @@ import { rerender } from './app.js';
 const code6 = (a) => a.id.replace(/-/g, '').slice(0, 6);
 const lim = (t, n) => (t.length > n ? t.slice(0, n) + '…(이하 생략)' : t);
 
-function block(a, opt) {
+export function block(a, opt) {
   const s = S.get(a.sub);
   const parts = [`[[#${code6(a)}]] ${s ? s.grade + '학년 · ' + s.name : ''} · ${a.title || '활동'}`];
   if (opt.mode === 'o') parts.push(`중요도: ${a.imp || 2}`);
@@ -48,6 +48,11 @@ export function openQGen() {
     const bs = batches(); const total = bs.reduce((n, b) => n + b.length, 0);
     const codeIn = h('input', { class: 'inp', type: 'password', placeholder: '이용 코드', value: f.code, oninput: (e) => { f.code = e.target.value; } });
     body.replaceChildren(
+      h('div', { class: 'note' }, h('b', null, f.mode === 'o' ? '활동 정리란?' : '예상질문 뽑기란?'),
+        f.mode === 'o'
+          ? '생기부 한 줄이 실제로 어떤 활동이었는지 면접용으로 풀어 주는 설명자료예요. 요약, 단계별 풀이, 핵심 용어, 다른 활동과의 연결, 약점 점검, 예상 질문과 답변 초안이 만들어지고, 결과는 각 활동의 "활동 설명" 칸에 들어가요.'
+          : '지원 대학·학과에 맞춰 면접관이 물을 만한 활동을 고르고 질문과 답변 초안을 만들어요. 결과는 활동별 "예상질문" 칸에 나눠 들어가요.',
+        h('div', { class: 'sub' }, '어떤 활동을 고르고 어떤 질문을 만들지의 선정 조건은 양질의 자료를 위해 많은 자료를 참고해서 만들었어요.')),
       h('div', { class: 'note' }, h('b', null, '이 기능은 AI 서비스를 직접 이용해요'),
         '앱은 서버와 통신하지 않아요. ① 아래 버튼으로 복사한 내용을 평소 쓰는 AI(ChatGPT·Claude 등)에 붙여 넣고 ② AI가 만든 답을 ③ 아래 칸에 붙여 넣으면 활동별로 자동 배분돼요. 복사하는 내용에는 생기부 원문이 들어가니, 믿을 수 있는 AI 서비스에서만 쓰세요.'),
       h('div', { class: 'chips' }, ...[['q', '예상질문 뽑기'], ['o', '활동 면접용 정리']].map(([k, l]) => h('button', { class: 'chip' + (f.mode === k ? ' on' : ''), onclick: () => { f.mode = k; draw(); } }, l))),

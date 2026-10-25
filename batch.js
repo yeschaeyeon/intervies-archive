@@ -3,9 +3,12 @@ import { h, modal, toast, pickFile, confirmBox } from './util.js';
 import * as S from './store.js';
 import { extractText } from './files.js';
 import { parseQA, getPrompt, copyText, packLocked } from './qa.js';
-import { parseImportCode, applyImportCode, ensureSubject, addActivity } from './intake.js';
+import { parseRefCode, applyRefCode, parseImportCode, applyImportCode, ensureSubject, addActivity } from './intake.js';
 import { tf } from './hl.js';
 import { rerender } from './app.js';
+import { parseBatch } from './qa.js';
+import { block } from './qgen.js';
+import { targets, targetText, openTargetPicker } from './target.js';
 
 
 // ---------- AI로 한 번에 입력 ----------
@@ -97,4 +100,75 @@ export function openTour() {
     h('div', { class: 'card' }, h('b', null, '② 파일 여러 개 한꺼번에'), h('p', { class: 'sub' }, '보고서나 활동 설명 파일을 여러 개 올리고, 파일마다 학년·과목·활동을 골라요.')),
     h('div', { class: 'card' }, h('b', null, '③ 예상질문 일괄 만들기'), h('p', { class: 'sub' }, '내 생기부 전체의 예상질문을 AI로 한 번에 뽑아 활동별로 나눠 넣어요.')),
     h('div', { class: 'row end' }, h('button', { class: 'btn', onclick: () => m.close() }, '나중에'), h('button', { class: 'btn solid', onclick: () => { m.close(); openAIImport(); } }, 'AI로 한 번에 입력'))));
+}
+
+// ---------- 참고자료 AI 정리 ----------
+export function openRefImport() {
+  const mine = h('textarea', { class: 'inp', rows: 8, placeholder: '정리할 참고자료를 붙여 넣으세요 (책·기사·논문 내용, 읽고 쓴 메모 등). 여러 개면 사이에 줄 하나(-----)를 넣어 주세요' });
+  const res = h('textarea', { class: 'inp', rows: 8, placeholder: 'AI가 준 코드를 여기에 붙여 넣으세요 (@@참고, @@종류 … 으로 된 글)' });
+  const code = h('input', { class: 'inp', type: 'password', placeholder: '이용 코드' });
+  const withActs = h('input', { type: 'checkbox', checked: true });
+  const prev = h('div', { class: 'stack' }); const tgt = h('div', { class: 'stack' });
+  const drawT = () => tgt.replaceChildren(h('b', null, '지원 대학·학과'),
+    targets().length ? h('div', { class: 'pre' }, targets().map((t) => `${t.univ} ${t.dept}`).join('\n')) : h('p', { class: 'sub' }, '고르지 않아도 되지만, 고르면 전공 연결이 더 정확해져요.'),
+    h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => openTargetPicker(drawT) }, targets().length ? '바꾸기 · 추가' : '대학·학과 선택')));
+  drawT();
+  const actList = () => S.list('act', (a) => S.get(a.sub) && a.src.x.trim()).map((a) => { const s = S.get(a.sub); return `${s.grade}학년 · ${s.name} · ${a.title}: ${a.src.x.trim().slice(0, 200)}`; }).join('\n');
+  let refs = [];
+  const analyze = () => {
+    refs = parseRefCode(res.value);
+    if (!refs.length) return prev.replaceChildren(h('p', { class: 'err' }, '코드를 찾지 못했어요. AI가 준 코드 블록 전체를 붙여 넣어 주세요.'));
+    prev.replaceChildren(h('p', null, `참고자료 ${refs.length}개를 찾았어요.`),
+      ...refs.slice(0, 40).map((r) => h('div', { class: 'list-item' }, h('span', { class: 'grow' }, r.title), h('span', { class: 'tag' }, (r.grade ? r.grade + '학년' : '공통') + (r.kind ? ' · ' + r.kind : '')))),
+      h('div', { class: 'row end' }, h('button', { class: 'btn solid', onclick: () => { const r = applyRefCode(refs); m.close(); rerender(); toast(`참고자료 ${r.made}개 추가${r.merged ? `, ${r.merged}개는 기존 자료에 합침` : ''}`); } }, '앱에 넣기')));
+  };
+  const m = modal('AI로 참고자료 정리', h('div', { class: 'stack' },
+    h('div', { class: 'note' }, h('b', null, '이렇게 하세요'),
+      h('div', { class: 'pre' }, '① 정리할 자료를 붙여 넣고 "복사"를 눌러요.\n② 복사한 내용을 평소 쓰는 AI에 붙여 넣어요. AI가 설명 없이 코드만 줘요.\n③ AI가 준 코드를 아래 칸에 붙여 넣고 "분석하기"를 눌러요.\n※ 자료가 AI 서비스로 전송되니 믿을 수 있는 서비스에서만 쓰세요.')),
+    h('div', { class: 'card stack' }, tgt),
+    h('div', { class: 'card stack' }, h('b', null, '1. 정리할 참고자료'), mine, packLocked() ? code : null,
+      h('label', { class: 'check' }, withActs, h('span', null, '내 생기부 활동도 함께 보내서 연결하기')),
+      h('div', { class: 'row' }, h('button', { class: 'btn solid', onclick: async () => {
+        if (!mine.value.trim()) return toast('정리할 자료를 붙여 넣어 주세요');
+        try {
+          const ok = await copyText(async () => (await getPrompt('ref', code.value, { 지원: targetText() || '(선택 안 함)' })) + `\n[참고자료]\n${mine.value.trim()}\n` + (withActs.checked && actList() ? `\n[내 생기부 활동]\n${actList()}\n` : ''));
+          toast(ok ? '복사했어요. AI에 붙여 넣으세요.' : '복사하지 못했어요. 클립보드 권한을 확인해 주세요.');
+        } catch (e) { toast(e.message || '복사하지 못했어요'); }
+      } }, '2. 복사'))),
+    h('div', { class: 'card stack' }, h('b', null, '3. AI가 준 코드 붙여 넣기'), res,
+      h('div', { class: 'row tight' }, h('button', { class: 'btn', onclick: async () => { const [f] = await pickFile('.txt,.md'); if (!f) return; res.value = await f.text(); analyze(); } }, '파일로 넣기'), h('button', { class: 'btn solid', onclick: analyze }, '분석하기')), prev)), { wide: true });
+}
+
+// ---------- 활동 하나의 설명자료 만들기 (프롬프트 복사 → AI → 결과 붙여 넣기) ----------
+export function openActAI(act) {
+  const code = h('input', { class: 'inp', type: 'password', placeholder: '이용 코드' });
+  const tgt = h('div', { class: 'stack' });
+  const drawT = () => tgt.replaceChildren(h('b', null, '지원 대학·학과'),
+    targets().length ? h('div', { class: 'pre' }, targets().map((t) => `${t.univ} ${t.dept}`).join('\n')) : h('p', { class: 'sub' }, '먼저 지원 대학·학과를 골라 주세요.'),
+    h('div', { class: 'row' }, h('button', { class: 'btn' + (targets().length ? '' : ' solid'), onclick: () => openTargetPicker(drawT) }, targets().length ? '바꾸기 · 추가' : '대학·학과 선택')));
+  drawT();
+  const res = h('textarea', { class: 'inp', rows: 8, placeholder: 'AI가 준 결과를 여기에 붙여 넣으세요' });
+  const copy = h('button', { class: 'btn solid', onclick: async () => {
+    if (!targets().length) return toast('먼저 지원 대학·학과를 선택해 주세요');
+    try {
+      const a = S.get(act.id);
+      const ok = await copyText(async () => (await getPrompt('organize', code.value, { 지원: targetText(), 개수: '', 가이드: '' })) + `\n[활동 목록]\n${block(a, { mode: 'o', extra: true })}\n`);
+      toast(ok ? '복사했어요. AI에 붙여 넣으세요.' : '복사하지 못했어요. 클립보드 권한을 확인해 주세요.');
+    } catch (e) { toast(e.message || '복사하지 못했어요'); }
+  } }, '1. 프롬프트 복사');
+  const m = modal('설명자료 만들기', h('div', { class: 'stack' },
+    h('div', { class: 'note' }, h('b', null, '이렇게 하세요'),
+      h('div', { class: 'pre' }, '① 대학·학과를 고르고 "프롬프트 복사"를 눌러요. 이 활동의 생기부 원문이 함께 복사돼요.\n② 자기 AI에 붙여 넣고, AI가 만든 결과를 아래 칸에 붙여 넣어요.\n③ "활동에 넣기"를 누르면 설명은 활동 설명 칸에, 질문은 예상질문 칸에 들어가요.\n※ 생기부 내용이 AI 서비스로 전송되니 믿을 수 있는 서비스에서만 쓰세요.')),
+    h('div', { class: 'card stack' }, tgt),
+    h('div', { class: 'card stack' }, packLocked() ? code : null, copy),
+    h('div', { class: 'card stack' }, h('b', null, '2. AI 결과 붙여 넣기'), res,
+      h('div', { class: 'row end' }, h('button', { class: 'btn solid', onclick: () => {
+        const blocks = parseBatch(res.value);
+        if (!blocks.length) return toast('결과를 찾지 못했어요. AI가 만든 답 전체를 붙여 넣어 주세요.');
+        const a = S.get(act.id); const notes = blocks.map((b) => b.notes).filter(Boolean).join('\n\n');
+        if (notes && !a.desc.x.includes('【면접용 정리】')) S.patch(a.id, { desc: { x: (a.desc.x.trim() ? a.desc.x.trim() + '\n\n' : '') + '【면접용 정리】\n' + notes, h: a.desc.h || [] } });
+        const have = new Set(S.list('q', (q) => q.act === a.id).map((q) => q.q.x.trim())); let n = 0;
+        for (const b of blocks) for (const it of b.items) { if (have.has(it.q.trim())) continue; S.create('q', { act: a.id, q: tf(it.q.trim()), a: tf(it.a || '') }); n++; }
+        m.close(); rerender(); toast(`설명자료를 넣었어요${n ? ` (질문 ${n}개)` : ''}`);
+      } }, '활동에 넣기')))), { wide: true });
 }

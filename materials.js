@@ -5,7 +5,7 @@ import { richField, tf, lastSel, extractHL, partitionHL, COLORS, COLOR_NAMES } f
 import { extractText, pdfLines, parseSaenggibu, pdfPlainText, parseBulkText } from './files.js';
 import { parseQA } from './qa.js';
 import { ensureSubject, addActivity, applyEntries } from './intake.js';
-import { openAIImport, openFilesBatch, openTour } from './batch.js';
+import { openAIImport, openFilesBatch, openTour, openRefImport, openActAI } from './batch.js';
 import { openQGen } from './qgen.js';
 import { rerender, nav } from './app.js';
 
@@ -35,21 +35,30 @@ function gradeView(st) {
   const wrap = h('div', { class: 'stack' });
   if (g === 3) wrap.append(h('div', { class: 'note' }, h('b', null, '3학년 생기부는 직접 입력이 필요할 수 있어요'),
     '3학년 생기부는 학교에서 공개되지 않는 경우가 많아요. 직접 입력하거나 활동 기록을 정리해 넣어 주세요.'));
-  wrap.append(h('div', { class: 'row tight' },
-    h('button', { class: 'btn solid', onclick: () => importFlow(st) }, '생기부 파일 첨부'),
-    h('button', { class: 'btn', onclick: () => addSubject(st, g) }, '직접 입력 · 과목 추가'),
-    h('button', { class: 'btn', onclick: () => bulkInput(st, g) }, '한꺼번에 입력'),
-    h('button', { class: 'btn', onclick: openAIImport }, 'AI로 한 번에 입력'),
-    h('button', { class: 'btn', onclick: openFilesBatch }, '파일 여러 개 한꺼번에'),
-    h('button', { class: 'btn', onclick: openQGen }, '예상질문 일괄 만들기')));
+  const tile = (title, desc, fn, solid) => h('button', { class: 'tile' + (solid ? ' solid' : ''), onclick: fn }, h('b', null, title), h('span', { class: 'd' }, desc));
+  const ad = h('details', { class: 'adder', open: !subs.length },
+    h('summary', null, `${g}학년 내용 추가하기`),
+    h('div', { class: 'in' },
+      h('div', { class: 'sech' }, '① 생기부 내용 넣기'),
+      h('div', { class: 'tiles' },
+        tile('생기부 PDF 올리기', '파일을 올리면 학년·과목·활동으로 자동 분류해요', () => importFlow(st), !subs.length),
+        tile('글 붙여 넣기', '생기부 글을 통째로 붙여 넣으면 과목별로 나눠요 (3학년용)', () => bulkInput(st, g)),
+        tile('과목 직접 만들기', '과목 이름을 정하고 원문을 직접 적어요', () => addSubject(st, g))),
+      h('div', { class: 'sech' }, '② AI로 채우기'),
+      h('div', { class: 'tiles' },
+        tile('AI로 한 번에 입력', '내 활동 기록을 AI에 맡기고 코드를 붙여 넣어요', openAIImport),
+        tile('예상질문 · 면접용 정리', '지원 대학·학과를 고르고 AI로 질문과 정리를 받아요', openQGen)),
+      h('div', { class: 'sech' }, '③ 파일로 채우기'),
+      h('div', { class: 'tiles' },
+        tile('파일 여러 개 한꺼번에', '보고서·활동 설명 파일을 과목·활동에 나눠 넣어요', openFilesBatch))));
+  wrap.append(ad);
   if (!subs.length) wrap.append(h('div', { class: 'empty' }, `${g}학년 과목이 아직 없어요. 생기부 파일(PDF)을 첨부하면 학년·과목으로 자동 분류하고, 파일이 없거나 비공개 학년이면 "직접 입력"으로 과목을 만들어 원문을 붙여 넣으세요.`));
-  for (const s of subs) {
+  if (subs.length) wrap.append(h('div', { class: 'tiles' }, ...subs.map((s) => {
     const acts = S.list('act', (a) => a.sub === s.id);
-    wrap.append(h('button', { class: 'card click', onclick: () => { st.sub = s.id; st.act = null; window.scrollTo(0, 0); rerender(); } },
-      h('div', { class: 'h-between' },
-        h('span', { class: 'row tight' }, h('span', { class: 'dot c' + s.color }), h('b', null, s.name)),
-        h('span', { class: 'sub' }, `활동 ${acts.length} · 완료 ${acts.filter((a) => a.done).length}`))));
-  }
+    return h('button', { class: 'tile stile', onclick: () => { st.sub = s.id; st.act = null; window.scrollTo(0, 0); rerender(); } },
+      h('span', { class: 'row tight' }, h('span', { class: 'dot c' + s.color }), h('b', null, s.name)),
+      h('span', { class: 'sub' }, `활동 ${acts.length} · 완료 ${acts.filter((a) => a.done).length}`));
+  })));
   return wrap;
 }
 
@@ -184,6 +193,11 @@ function subjectView(root, st) {
   const attachBtn = h('button', { class: 'btn sm', onclick: () => attachText(act, 'rep', '보고서 원문') }, '파일 첨부');
   const right = h('div', { class: 'pane' + (pane === 'mat' ? '' : ' hide-m') },
     h('div', { class: 'pane-title' }, '면접 준비 자료'),
+    h('div', { class: 'note' }, h('b', null, '활동 설명이 뭔가요?'),
+      '면접관은 생기부 한 줄만 봐요. 그 한 줄이 실제로 어떤 활동이었는지 풀어 둔 설명자료를 첨부해 주세요. 방법은 세 가지예요.',
+      h('div', { class: 'pre' }, '① 설명자료 제작 프롬프트를 복사해 AI에 넣고, 나온 결과를 붙여 넣기\n② 가지고 있는 보고서 원문을 아래 "보고서 원문" 칸에 넣기 (PDF·docx도 가능)\n③ 직접 정리해서 적기'),
+      h('div', { class: 'sub' }, '활동 정리의 선정 조건은 양질의 자료를 위해 많은 자료를 참고해서 만들었어요.'),
+      h('div', { class: 'row' }, h('button', { class: 'btn', onclick: () => openActAI(act) }, '설명자료 프롬프트 복사 · 결과 붙여 넣기'))),
     mk('desc', '활동 설명', '활동 내용을 정리해서 적어 두세요', []),
     mk('rep', '보고서 원문', '보고서 원문을 붙여 넣거나 파일(PDF·docx·txt)로 첨부하면 여기에 바로 보여요', [attachBtn]),
     questions(act, st));
@@ -316,17 +330,15 @@ function refView(st) {
   const all = S.list('ref');
   const kinds = [...new Set(all.map((r) => r.kind).filter(Boolean))];
   const f = st.rf;
-  const q = f.q.replace(/\s+/g, '').toLowerCase();
-  const shown = all.filter((r) => (f.grade === 'all' || r.grade === f.grade) && (f.kind === 'all' || r.kind === f.kind) &&
-    (!q || [r.title, r.kind, r.desc && r.desc.x, r.usage && r.usage.x, r.body && r.body.x].join('').replace(/\s+/g, '').toLowerCase().includes(q)));
-  const search = h('input', { class: 'inp', value: f.q, placeholder: '참고자료 안에서 찾기', oninput: () => { f.q = search.value; } });
-  search.addEventListener('keydown', (e) => { if (e.key === 'Enter') rerender(); });
+  const shown = all.filter((r) => (f.grade === 'all' || r.grade === f.grade) && (f.kind === 'all' || r.kind === f.kind) );
   const wrap = h('div', { class: 'stack' },
-    h('div', { class: 'row tight' }, h('button', { class: 'btn solid', onclick: () => editRef(null, st) }, icon('plus', 14), '참고자료 추가')),
+    h('div', { class: 'tiles' },
+      h('button', { class: 'tile', onclick: () => editRef(null, st) }, h('b', null, '직접 추가'), h('span', { class: 'd' }, '제목·종류를 적고 내용을 직접 입력해요')),
+      h('button', { class: 'tile solid', onclick: openRefImport }, h('b', null, 'AI 프롬프트로 한 번에 추가'), h('span', { class: 'd' }, '자료를 붙여 넣고 프롬프트를 복사해 AI로 정리해요'))),
     h('div', { class: 'chips' },
       ...[['all', '전체'], [0, '공통'], [1, '1학년'], [2, '2학년'], [3, '3학년']].map(([k, l]) => h('button', { class: 'chip' + (f.grade === k ? ' on' : ''), onclick: () => { f.grade = k; rerender(); } }, l))),
     kinds.length ? h('div', { class: 'chips' }, ...[['all', '모든 종류'], ...kinds.map((k) => [k, k])].map(([k, l]) => h('button', { class: 'chip' + (f.kind === k ? ' on' : ''), onclick: () => { f.kind = k; rerender(); } }, l))) : null,
-    search);
+    null);
   if (!shown.length) wrap.append(h('div', { class: 'empty' }, all.length ? '조건에 맞는 참고자료가 없어요.' : '논문, 책, 기사, 보고서 등 활동에 쓴 참고자료를 모아 두는 곳이에요. 종류와 활용처를 함께 적어 두면 면접 때 찾기 쉬워요.'));
   for (const r of shown) {
     wrap.append(h('div', { class: 'card' },
@@ -344,7 +356,9 @@ function editRef(r, st) {
   const title = h('input', { class: 'inp', value: r ? r.title : '', placeholder: '제목' });
   const kind = h('input', { class: 'inp', value: r ? r.kind || '' : '', placeholder: '종류 (예: 논문, 도서, 기사)' });
   const gr = h('select', { class: 'inp' }, ...[[0, '공통'], [1, '1학년'], [2, '2학년'], [3, '3학년']].map(([v, l]) => h('option', { value: v, selected: r ? r.grade === v : v === 0 }, l)));
-  const m = modal(r ? '참고자료 정보' : '참고자료 추가', h('div', null, h('label', { class: 'lbl' }, '제목'), title, h('label', { class: 'lbl' }, '종류'), kind, h('label', { class: 'lbl' }, '학년'), gr,
+  const m = modal(r ? '참고자료 정보' : '참고자료 추가', h('div', null,
+    r ? null : h('button', { class: 'tile solid', onclick: () => { m.close(); openRefImport(); } }, h('b', null, 'AI 프롬프트로 한 번에 추가'), h('span', { class: 'd' }, '자료를 붙여 넣고 프롬프트를 복사해 AI로 정리해요')),
+    h('label', { class: 'lbl' }, '제목'), title, h('label', { class: 'lbl' }, '종류'), kind, h('label', { class: 'lbl' }, '학년'), gr,
     h('div', { class: 'row end' }, h('button', { class: 'btn', onclick: () => m.close() }, '취소'), h('button', { class: 'btn solid', onclick: () => {
       if (!title.value.trim()) return toast('제목을 입력해 주세요');
       const p = { title: title.value.trim(), kind: kind.value.trim(), grade: +gr.value };

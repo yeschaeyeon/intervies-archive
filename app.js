@@ -7,10 +7,10 @@ import { renderMock } from './mock.js';
 import { renderGuide } from './guide.js';
 import { renderAll } from './all.js';
 import { renderSettings } from './settings.js';
-import { openSearch } from './search.js';
+import { renderSearch } from './search.js';
 
-const TABS = [['mat', '자료', 'doc'], ['mock', '모의면접', 'mic'], ['guide', '가이드', 'flag'], ['all', '전체 자료', 'stack'], ['set', '설정', 'gear']];
-const VIEWS = { mat: renderMat, mock: renderMock, guide: renderGuide, all: renderAll, set: renderSettings };
+const TABS = [['mat', '자료', 'doc'], ['search', '검색', 'search'], ['mock', '모의면접', 'mic'], ['guide', '가이드', 'flag'], ['all', '전체 자료', 'stack'], ['set', '설정', 'gear']];
+const VIEWS = { mat: renderMat, search: renderSearch, mock: renderMock, guide: renderGuide, all: renderAll, set: renderSettings };
 export const routes = {};
 let cur = 'mat', shell = null, busyFlag = false;
 export const setBusy = (b) => { busyFlag = b; };
@@ -24,7 +24,6 @@ function build() {
   const bar = h('nav', { class: 'tabbar', 'aria-label': '메뉴' },
     ...TABS.map(([k, label, ic]) => h('button', { 'aria-label': label, title: label, data: { tab: k }, onclick: () => nav(k, k === cur ? {} : routes[k] || {}) }, icon(ic, 26))));
   const top = h('header', { class: 'topbar' }, title,
-    h('button', { class: 'ibtn', 'aria-label': '검색', onclick: openSearch }, icon('search', 24)),
     h('button', { class: 'ibtn', 'aria-label': '지금 잠그기', onclick: () => S.lock() }, icon('lock', 22)));
   shell = h('div', { class: 'shell' }, top, view, bar);
   shell._title = title; shell._view = view;
