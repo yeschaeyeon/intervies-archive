@@ -46,7 +46,7 @@ export function openAIImport() {
 
 // ---------- 파일 여러 개 한꺼번에 ----------
 const FIELDS = [['rep', '보고서 원문'], ['desc', '활동 설명'], ['src', '생기부 원문']];
-export function openFilesBatch() {
+export function openFilesBatch(onDone) {
   const rows = []; const list = h('div', { class: 'stack' });
   const subNames = (g) => [...new Set(S.list('sub', (s) => s.grade === g).map((s) => s.name))];
   const draw = () => {
@@ -84,7 +84,7 @@ export function openFilesBatch() {
         S.patch(a.id, { [r.field]: { x: cur.x ? cur.x + '\n\n' + t : t, h: cur.h || [] } }); n++;
       } catch (e) { console.error(e); bad++; }
     }
-    m.close(); rerender(); toast(`파일 ${n}개를 넣었어요${bad ? ` (${bad}개는 읽지 못함)` : ''}`);
+    m.close(); rerender(); if (typeof onDone === 'function') onDone(); toast(`파일 ${n}개를 넣었어요${bad ? ` (${bad}개는 읽지 못함)` : ''}`);
   } }, '모두 넣기');
   const m = modal('파일 여러 개 한꺼번에', h('div', { class: 'stack' },
     h('div', { class: 'note' }, '보고서·활동 설명 파일을 한 번에 올려요. 같은 과목이면 위 파일의 선택이 다음 파일에 이어져요. 사진·스캔 파일은 읽을 수 없어요.'),
@@ -139,6 +139,7 @@ export function openRefImport() {
       h('div', { class: 'row tight' }, h('button', { class: 'btn', onclick: async () => { const [f] = await pickFile('.txt,.md'); if (!f) return; res.value = await f.text(); analyze(); } }, '파일로 넣기'), h('button', { class: 'btn solid', onclick: analyze }, '분석하기')), prev)), { wide: true });
 }
 
+const code6a = (a) => a.id.replace(/-/g, '').slice(0, 6);
 // ---------- 활동 하나의 설명자료 만들기 (프롬프트 복사 → AI → 결과 붙여 넣기) ----------
 export function openActAI(act) {
   const code = h('input', { class: 'inp', type: 'password', placeholder: '이용 코드' });
@@ -163,7 +164,7 @@ export function openActAI(act) {
     h('div', { class: 'card stack' }, packLocked() ? code : null, copy),
     h('div', { class: 'card stack' }, h('b', null, '2. AI 결과 붙여 넣기'), res,
       h('div', { class: 'row end' }, h('button', { class: 'btn solid', onclick: () => {
-        const blocks = parseBatch(res.value);
+        const blocks = parseBatch(res.value, new Set([code6a(act)]));
         if (!blocks.length) return toast('결과를 찾지 못했어요. AI가 만든 답 전체를 붙여 넣어 주세요.');
         const a = S.get(act.id); const notes = blocks.map((b) => b.notes).filter(Boolean).join('\n\n');
         if (notes && !a.desc.x.includes('【면접용 정리】')) S.patch(a.id, { desc: { x: (a.desc.x.trim() ? a.desc.x.trim() + '\n\n' : '') + '【면접용 정리】\n' + notes, h: a.desc.h || [] } });

@@ -87,6 +87,9 @@ main > * + * { margin-top: 12px; }
 .tile.stile { min-height: 56px; justify-content: space-between; }
 .tile.solid { background: var(--ink); color: #fff; }
 .tile.solid span.d { color: #ddd; }
+.tiles.two { grid-template-columns: 1fr 1fr; }
+.tile.big { min-height: 140px; padding: 16px; justify-content: center; }
+.tile.big b { font-size: 18px; }
 .sech { font-size: 13px; font-weight: 700; margin: 12px 0 6px; }
 .sech:first-child { margin-top: 0; }
 details.adder { border: 1.5px solid var(--ink); background: #fff; }
@@ -210,3 +213,15 @@ video { max-height: 360px; background: #000; }
   .mk { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .c0, .c1, .c2, .c3, .c4, .c5 { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* 면접관 사진 */
+.profs { display: grid; gap: 8px; align-items: start; }
+.profs.n1 { grid-template-columns: minmax(0, 420px); justify-content: center; }
+.profs.n2 { grid-template-columns: 1fr 1fr; }
+.profs.n3 { grid-template-columns: 1fr 1fr 1fr; }
+.prof { margin: 0; border: 1.5px solid var(--ink); background: #fff; }
+.prof img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
+.prof figcaption { padding: 6px 8px; font-weight: 600; font-size: 14px; text-align: center; border-top: 1.5px solid var(--ink); }
+.profs.edit { align-items: stretch; }
+.tile.add { align-items: center; justify-content: center; min-height: 160px; border-style: dashed; }
+.bigq { margin-top: 12px; }

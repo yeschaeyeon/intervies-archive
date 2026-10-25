@@ -5,6 +5,7 @@ import { newRecoveryKey } from './crypto.js';
 import { pdfLines, parseSaenggibu } from './files.js';
 import { applyEntries } from './intake.js';
 import { openDownloadGuide } from './dlguide.js';
+import { renderPrep } from './prep.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const busy = async (btn, label, fn) => {
@@ -21,7 +22,7 @@ export function renderLock(root) {
 }
 
 let pending = null; // 온보딩에서 읽은 생기부 분류 결과 (비밀번호를 정한 뒤 저장)
-const stepTag = (n) => h('p', { class: 'sub' }, `${n} / 4`);
+const stepTag = (n) => h('p', { class: 'sub' }, `${n} / 5`);
 
 function welcome(box) {
   const pt = (t, d) => h('div', { class: 'card' }, h('b', null, t), h('p', { class: 'sub' }, d));
@@ -71,8 +72,8 @@ function passwordStep(box) {
     if (pw.value !== pw2.value) return (msg.textContent = '두 비밀번호가 달라요.');
     const rk = newRecoveryKey();
     S.gate.hold = true; // 복구 키를 확인하기 전에는 앱 화면으로 넘어가지 않음
-    await busy(go, '암호화 준비 중…', async () => { await S.setup(pw.value, rk); if (pending) { applyEntries(pending, true); pending = null; } S.setPref('tour', 1); });
-    clear(box); recoveryStep(box, rk, () => { S.gate.hold = false; S.gate.release(); });
+    await busy(go, '암호화 준비 중…', async () => { await S.setup(pw.value, rk); if (pending) { applyEntries(pending, true); pending = null; } });
+    clear(box); recoveryStep(box, rk, () => { clear(box); renderPrep(box, () => { S.gate.hold = false; S.gate.release(); }); });
   } }, '다음');
   box.append(stepTag(3), h('h1', null, '앱 잠금 비밀번호'),
     h('div', { class: 'note' }, h('b', null, '잊으면 되돌릴 수 없어요. 꼭 메모해 두세요'), '서버가 없어서 비밀번호를 대신 찾아 줄 수 없어요. 다음 단계에서 나오는 복구 키도 따로 보관하세요.'),
@@ -84,7 +85,7 @@ function passwordStep(box) {
 // 복구 키 보여주기(최초 1회). onDone 호출 후 앱 진입은 lock 상태 변화로 처리됨
 export function recoveryStep(box, rk, onDone, title = '복구 키') {
   const chk = h('input', { type: 'checkbox', id: 'rk-ok' });
-  const go = h('button', { class: 'btn solid block', disabled: true, onclick: () => onDone() }, '시작하기');
+  const go = h('button', { class: 'btn solid block', disabled: true, onclick: () => onDone() }, '다음');
   chk.addEventListener('change', () => { go.disabled = !chk.checked; });
   box.append(title === '복구 키' ? stepTag(4) : null, h('h1', null, title),
     h('p', null, '비밀번호를 잊었을 때 이 복구 키로 데이터를 열 수 있어요. 지금 한 번만 보여드리고, 앱 안에는 저장하지 않아요.'),

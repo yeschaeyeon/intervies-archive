@@ -2,18 +2,19 @@
 import { h, download, confirmBox, toast } from './util.js';
 import * as S from './store.js';
 import { renderRich, COLORS } from './hl.js';
+import { rerender } from './app.js';
 
 const rich = (cls, f) => { const d = h('div', { class: cls || 'blk' }); renderRich(d, f.x, f.h || []); return d; };
 const sec = (label, f) => (f && f.x && f.x.trim() ? [h('div', { class: 'lbl2' }, label), rich('blk', f)] : []);
 
-function buildDoc() {
+function buildDoc(o) {
   const pages = [];
   const nInt = S.list('intro').length, subs = S.list('sub'), acts = S.list('act', (a) => S.get(a.sub)), refs = S.list('ref'), guides = S.list('guide');
   const toc = [];
   const body = [];
 
   // 자기소개
-  const intros = S.list('intro');
+  const intros = o.intro ? S.list('intro') : [];
   if (intros.length) {
     toc.push(['sec-intro', '자기소개']);
     body.push(h('section', { class: 'a4', id: 'sec-intro' }, h('h2', null, '자기소개'),
@@ -27,21 +28,24 @@ function buildDoc() {
       toc.push([`sub-${s.id}`, s.name, 1]);
       nodes.push(h('h3', { id: 'sub-' + s.id }, h('span', { class: 'mk c' + s.color }, s.name)));
       for (const a of S.list('act', (x) => x.sub === s.id)) {
-        const qs = S.list('q', (q) => q.act === a.id);
+        const qs = o.q ? S.list('q', (q) => q.act === a.id) : [];
+        const parts = [
+          ...(o.src ? sec('생기부 원문', a.src) : []),
+          ...(o.mat ? [...sec('면접 자료 · 활동 설명', a.desc), ...sec('면접 자료 · 보고서 원문', a.rep)] : []),
+          ...(qs.length ? [h('div', { class: 'lbl2' }, '예상질문'), ...qs.map((q, i) => h('div', { class: 'blk' }, h('b', null, `Q${i + 1}. `), rich('', q.q), q.a && q.a.x ? h('div', null, h('b', null, 'A. '), rich('', q.a)) : null))] : [])];
+        if (!parts.length) continue;
         nodes.push(h('div', { class: 'actb' },
-          h('h4', null, a.title || '활동', a.imp ? `  ·  중요도 ${a.imp}` : '', a.done ? h('span', { class: 'mk c' + s.color }, '  완료') : null),
-          ...sec('생기부 원문', a.src), ...sec('활동 설명', a.desc), ...sec('보고서 원문', a.rep),
-          ...(qs.length ? [h('div', { class: 'lbl2' }, '예상질문'), ...qs.map((q, i) => h('div', { class: 'blk' }, h('b', null, `Q${i + 1}. `), rich('', q.q), q.a && q.a.x ? h('div', null, h('b', null, 'A. '), rich('', q.a)) : null))] : [])));
+          h('h4', null, a.title || '활동', a.imp ? `  ·  중요도 ${a.imp}` : '', a.done ? h('span', { class: 'mk c' + s.color }, '  완료') : null), ...parts));
       }
     }
     body.push(h('section', { class: 'a4', id: `sec-g${g}` }, ...nodes));
   }
-  if (refs.length) {
+  if (o.ref && refs.length) {
     toc.push(['sec-ref', '참고자료']);
     body.push(h('section', { class: 'a4', id: 'sec-ref' }, h('h2', null, '참고자료'),
       ...refs.flatMap((r) => [h('h3', null, r.title, h('span', { class: 'sub' }, `  ${r.grade ? r.grade + '학년' : '공통'}${r.kind ? ' · ' + r.kind : ''}`)), ...sec('설명', r.desc), ...sec('활용처', r.usage), ...sec('자료 내용', r.body)])));
   }
-  if (guides.length) {
+  if (o.guide && guides.length) {
     toc.push(['sec-guide', '대학별 가이드·메모']);
     body.push(h('section', { class: 'a4', id: 'sec-guide' }, h('h2', null, '대학별 가이드·메모'),
       ...guides.flatMap((g) => [h('h3', null, g.univ), ...sec('면접 가이드', g.body), ...sec('메모', g.memo)])));
@@ -55,8 +59,14 @@ function buildDoc() {
   return h('div', { class: 'a4wrap' }, ...pages, ...body);
 }
 
-export function renderAll(root) {
-  const doc = buildDoc();
+export function renderAll(root, st) {
+  const o = st.opt || (st.opt = { src: true, q: true, mat: true, intro: true, ref: true, guide: true });
+  const doc = buildDoc(o);
+  const ck = (k, l) => h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: o[k], onchange: (e) => { o[k] = e.target.checked; rerender(); } }), h('span', null, l));
+  root.append(h('div', { class: 'card stack noprint' }, h('b', null, '파일에 넣을 내용 (복수 선택)'),
+    h('p', { class: 'sub' }, '활동 하나가 한 세트(생기부 원문 → 면접 자료 → 예상질문)로 묶여서 저장돼요.'),
+    h('div', { class: 'stack' }, ck('src', '생기부 원문'), ck('mat', '면접 자료 (활동 설명 · 보고서 원문)'), ck('q', '예상질문 (답변 포함)')),
+    h('div', { class: 'chips' }, ...[['intro', '자기소개'], ['ref', '참고자료'], ['guide', '대학 가이드']].map(([k, l]) => h('button', { class: 'chip' + (o[k] ? ' on' : ''), onclick: () => { o[k] = !o[k]; rerender(); } }, l)))));
   root.append(h('div', { class: 'row tight noprint' },
     h('button', { class: 'btn solid', onclick: () => window.print() }, 'PDF로 저장(인쇄)'),
     h('button', { class: 'btn', onclick: () => saveHtml(doc) }, 'HTML 파일 다운로드')),

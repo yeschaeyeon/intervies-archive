@@ -54,18 +54,25 @@ export function parseQA(text) {
   return out.filter((x) => x.q).map((x) => ({ q: x.q, a: x.a.trim().replace(/^\[([\s\S]*)\]$/, '$1').trim() }));
 }
 
-// AI 결과 전체: [[#코드]] 로 나뉜 블록 → [{ code, notes, items }]. notes = 첫 질문 앞의 @요약·@풀이 같은 정리 글
-export function parseBatch(text) {
+// AI 결과 전체: 활동 코드(6자리)가 있는 줄로 나뉜 블록 → [{ code, notes, items }]
+// known(활동 코드 모음)을 주면 [[#코드]] 모양이 조금 달라져도(역슬래시, 대괄호 하나, 굵게 표시 등) 코드가 줄 안에 있기만 하면 찾는다
+export function parseBatch(text, known) {
+  const clean = String(text || '').replace(/\\([\[\]#_*`])/g, '$1').replace(/［/g, '[').replace(/］/g, ']').replace(/\*\*|__/g, '').replace(/^\s*```.*$/gm, '');
   const blocks = []; let cur = null;
-  for (const line of String(text || '').replace(/^\s*```.*$/gm, '').split(/\r?\n/)) {
+  for (const line of clean.split(/\r?\n/)) {
+    let code = null;
     const m = line.match(/\[\[\s*#?\s*([0-9a-fA-F]{4,})\s*\]\]/);
-    if (m) { cur = { code: m[1].toLowerCase(), lines: [] }; blocks.push(cur); continue; }
+    if (m && (!known || known.has(m[1].toLowerCase().slice(0, 6)))) code = m[1].toLowerCase();
+    else if (known && line.length < 200 && !QRE.test(line) && !ARE.test(line)) {
+      for (const t of line.match(/(?<![0-9a-zA-Z])[0-9a-fA-F]{6}(?![0-9a-zA-Z])/g) || []) if (known.has(t.toLowerCase())) { code = t.toLowerCase(); break; }
+    }
+    if (code) { cur = { code, lines: [] }; blocks.push(cur); continue; }
     if (cur) cur.lines.push(line);
   }
   return blocks.map((b) => {
     const i = b.lines.findIndex((l) => QRE.test(l));
     const head = i < 0 ? b.lines : b.lines.slice(0, i);
-    const notes = head.join('\n').replace(/^\s*@\s*(요약|풀이|용어|연결|점검)\s*[:：]?\s*/gm, '【$1】\n').replace(/\*\*/g, '').trim();
+    const notes = head.join('\n').replace(/^\s*@\s*(요약|풀이|용어|연결|점검)\s*[:：]?\s*/gm, '【$1】\n').trim();
     return { code: b.code, notes, items: parseQA(i < 0 ? '' : b.lines.slice(i).join('\n')) };
   }).filter((b) => b.items.length || b.notes);
 }
